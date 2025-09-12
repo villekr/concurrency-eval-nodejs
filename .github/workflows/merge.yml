@@ -42,11 +42,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p build/source
-          cp -r src build/source/
-          cp package.json build/source/
-          if [ -f package-lock.json ]; then cp package-lock.json build/source/; fi
-          if [ -f README.md ]; then cp README.md build/source/; fi
-          if [ -f LICENSE ]; then cp LICENSE build/source/; fi
+          cp -r src/. build/source/
           (cd build/source && zip -r ../source.zip .)
 
       - name: Configure AWS credentials (OIDC)
