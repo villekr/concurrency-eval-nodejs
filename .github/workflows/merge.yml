@@ -1,0 +1,75 @@
+name: Merge CI
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  package-and-upload:
+    name: Package Node source and upload to S3
+    # runs-on: ubuntu-24.04 # we don't want to rely directly on 'ubuntu-latest'
+    runs-on: ubuntu-24.04-arm # we don't want to rely directly on 'ubuntu-latest'
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ARTIFACT_BUCKET_NAME: ${{ vars.ARTIFACT_BUCKET_NAME || secrets.ARTIFACT_BUCKET_NAME }}
+      WRITER_ROLE_ARN: ${{ vars.WRITER_ROLE_ARN || secrets.WRITER_ROLE_ARN }}
+      AWS_REGION: ${{ vars.AWS_REGION || secrets.AWS_REGION }}
+      ARTIFACT_PREFIX: concurrency-eval-nodejs
+    outputs:
+      code_s3_key: ${{ steps.upload.outputs.code_s3_key }}
+      code_s3_version: ${{ steps.upload.outputs.code_s3_version }}
+    steps:
+      - name: Validate required configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ARTIFACT_BUCKET_NAME?Define ARTIFACT_BUCKET_NAME as a Repository/Environment variable or Secret}"
+          : "${WRITER_ROLE_ARN?Define WRITER_ROLE_ARN as a Repository/Environment variable or Secret}"
+          : "${AWS_REGION?Define AWS_REGION as a Repository/Environment variable or Secret}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Create source zip
+        run: |
+          set -euxo pipefail
+          mkdir -p build/source
+          cp -r src build/source/
+          cp package.json build/source/
+          if [ -f package-lock.json ]; then cp package-lock.json build/source/; fi
+          if [ -f README.md ]; then cp README.md build/source/; fi
+          if [ -f LICENSE ]; then cp LICENSE build/source/; fi
+          (cd build/source && zip -r ../source.zip .)
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.WRITER_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-artifact-upload
+
+      - id: upload
+        name: Upload artifact to S3 (capture versioned key)
+        env:
+          BUCKET: ${{ env.ARTIFACT_BUCKET_NAME }}
+          PREFIX: ${{ env.ARTIFACT_PREFIX }}
+        run: |
+          set -euxo pipefail
+          FUNC_KEY="${PREFIX}/source.zip"
+          FUNC_VERSION_ID=$(aws s3api put-object --bucket "$BUCKET" --key "$FUNC_KEY" --body build/source.zip --query 'VersionId' --output text)
+          echo "code_s3_key=${FUNC_KEY}" >> "$GITHUB_OUTPUT"
+          echo "code_s3_version=${FUNC_VERSION_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          echo "Artifact uploaded:" >> $GITHUB_STEP_SUMMARY
+          echo "- code_s3_key=\"${{ steps.upload.outputs.code_s3_key }}\"" >> $GITHUB_STEP_SUMMARY
+          echo "- code_s3_version=\"${{ steps.upload.outputs.code_s3_version }}\"" >> $GITHUB_STEP_SUMMARY

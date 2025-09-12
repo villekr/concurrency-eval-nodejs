@@ -34,7 +34,7 @@ async function processor(event) {
   const responses = await Promise.all(tasks);
   if (find) {
     const firstNonNullIndex = responses.indexOf(
-      responses.find((value) => value !== null)
+      responses.find((value) => value !== null),
     );
     return responses.at(firstNonNullIndex);
   }
