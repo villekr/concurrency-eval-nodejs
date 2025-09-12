@@ -14,10 +14,9 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@aws-sdk/client-s3": "^3.345.0",
-    "eslint": "^8.42.0",
-    "eslint-config-prettier": "^8.8.0",
-    "eslint-plugin-import": "^2.27.5",
-    "prettier": "^2.8.8"
+    "@aws-sdk/client-s3": "^3.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-import": "^2.31.0",
+    "prettier": "^3.0.0"
   }
 }
