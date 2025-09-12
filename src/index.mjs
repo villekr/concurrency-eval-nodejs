@@ -3,6 +3,9 @@ import {
   ListObjectsV2Command,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
+import http from "http";
+import https from "https";
 
 export async function handler(event) {
   const start = Date.now();
@@ -18,7 +21,15 @@ export async function handler(event) {
 }
 
 async function processor(event) {
-  const s3 = new S3Client({});
+  // Increase available sockets and enable connection reuse to avoid SDK warnings
+  const requestHandler = new NodeHttpHandler({
+    httpAgent: new http.Agent({ keepAlive: true, maxSockets: 1024 }),
+    httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 1024 }),
+    // Set to 0 to disable the socket acquisition capacity warning in high-concurrency runs
+    socketAcquisitionWarningTimeout: 0,
+  });
+
+  const s3 = new S3Client({ requestHandler });
   const bucketName = event.s3_bucket_name;
   const folder = event.folder;
   const find = event.find;
