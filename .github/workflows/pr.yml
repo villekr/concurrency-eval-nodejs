@@ -27,3 +27,18 @@ jobs:
 
       - name: ESLint check
         run: npm run lint-check
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install lizard
+        run: pip install --disable-pip-version-check --no-input lizard
+
+      - name: Run lizard on main Lambda file only
+        run: |
+          # Check only the main file and fail on warnings
+          # -C: cyclomatic complexity threshold (warn if function > 10)
+          # -L: maximum function length (lines) threshold (warn if function > 120)
+          lizard -l javascript -C 10 -L 120 src/index.mjs
