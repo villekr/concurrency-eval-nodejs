@@ -28,15 +28,13 @@ async function processor(event) {
     Prefix: folder,
   };
   const response = await s3.send(new ListObjectsV2Command(listObjectsParams));
-  const keys = response.Contents.map((obj) => obj.Key);
+  const keys = (response.Contents ?? []).map((obj) => obj.Key);
 
   const tasks = keys.map((key) => get(s3, bucketName, key, find));
   const responses = await Promise.all(tasks);
   if (find) {
-    const firstNonNullIndex = responses.indexOf(
-      responses.find((value) => value !== null),
-    );
-    return responses.at(firstNonNullIndex);
+    const firstMatch = responses.find((value) => value !== null);
+    return firstMatch ?? null;
   }
   return responses.length.toString();
 }
