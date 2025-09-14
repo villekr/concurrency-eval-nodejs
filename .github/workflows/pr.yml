@@ -42,3 +42,7 @@ jobs:
           # -C: cyclomatic complexity threshold (warn if function > 10)
           # -L: maximum function length (lines) threshold (warn if function > 120)
           lizard -l javascript -C 10 -L 120 src/index.mjs
+
+      - name: Lizard csv output
+        run: |
+          lizard -l javascript -C 10 -L 120 src/index.mjs --csv
