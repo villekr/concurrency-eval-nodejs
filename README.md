@@ -11,6 +11,7 @@ Mandatory requirements:
   - processor: List objects from a specified S3 bucket and process them concurrently/parallel
   - get: Get a single object's body from S3, try to find a string if specified
 - The processor-function must be encapsulated with timing functions
+- S3 bucket will contain at maximum 1000 objects
 - Each S3 objects' body must be fully read
 - Code must return at least the following attributes as lambda handler response:
   - time (float): duration as float in seconds rounded to one decimal place
@@ -34,3 +35,10 @@ func get(s3_key, find):
     body = aws_sdk.get_object(s3_key).body
     return body.find(find) if find else None
 ```
+
+# Implementation notes
+- AWS SDK for JavaScript v3 (client-s3) is used. Listing uses ListObjectsV2 once without pagination. This is intentional because the README caps the bucket at 1000 objects and the API returns up to 1000 keys per call.
+- Object bodies are fully read using Body.transformToString(), ensuring full consumption per requirement.
+- Concurrency is achieved by issuing all GetObject requests in parallel with Promise.all over the listed keys.
+- Timing is measured around the processor call in the handler; the "time" value is seconds rounded to one decimal.
+- When a find string is provided, the first matching key is returned; otherwise, the count of listed objects (as a string) is returned.
