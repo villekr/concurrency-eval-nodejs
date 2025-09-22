@@ -26,6 +26,7 @@ async function processor(event) {
   const listObjectsParams = {
     Bucket: bucketName,
     Prefix: folder,
+    MaxKeys: 1000,
   };
   const response = await s3.send(new ListObjectsV2Command(listObjectsParams));
   const keys = (response.Contents ?? []).map((obj) => obj.Key);
