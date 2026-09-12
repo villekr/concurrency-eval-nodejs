@@ -31,13 +31,34 @@ async function processor(event) {
   const response = await s3.send(new ListObjectsV2Command(listObjectsParams));
   const keys = (response.Contents ?? []).map((obj) => obj.Key);
 
-  const tasks = keys.map((key) => get(s3, bucketName, key, find));
-  const responses = await Promise.all(tasks);
+  const memory = parseInt(
+    process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE || "1024",
+    10,
+  );
+  const cap = Math.max(8, Math.min(64, Math.floor(memory / 32)));
+
+  const results = new Array(keys.length).fill(null);
+  let next = 0;
+  async function worker() {
+    while (true) {
+      const index = next++;
+      if (index >= keys.length) {
+        return;
+      }
+      results[index] = await get(s3, bucketName, keys[index], find);
+    }
+  }
+  const workers = [];
+  for (let i = 0; i < Math.min(cap, keys.length); i++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
+
   if (find) {
-    const firstMatch = responses.find((value) => value !== null);
+    const firstMatch = results.find((value) => value !== null);
     return firstMatch ?? null;
   }
-  return responses.length.toString();
+  return keys.length.toString();
 }
 
 async function get(s3, bucketName, key, find) {
@@ -46,9 +67,9 @@ async function get(s3, bucketName, key, find) {
     Key: key,
   };
   const response = await s3.send(new GetObjectCommand(getObjectParams));
-  const body = await response.Body.transformToString();
+  const bytes = await response.Body.transformToByteArray();
   if (find) {
-    return body.indexOf(find) === -1 ? null : key;
+    return Buffer.from(bytes).indexOf(Buffer.from(find)) === -1 ? null : key;
   }
   return null;
 }
